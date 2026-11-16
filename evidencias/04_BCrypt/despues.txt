@@ -1,0 +1,101 @@
+LABORATORIO 17 - VERIFICACION BCrypt
+Fecha UTC: 2026-11-14T23:19:23.484690+00:00
+Destino local: https://localhost:8080
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "carlos_mora",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "carlos_mora",
+  "nombreCompleto": "Carlos Mora Morales",
+  "rol": "CLIENTE",
+  "usuarioId": 3
+}
+
+HASHES ALMACENADOS EN data.sql
+admin | $2a$12$fn28LWqh2.Ce2.wLjsgmyeoGZaSVlpvA4MARp9hnDracpObn.nHLC | factor=12
+auditor_seguridad | $2a$12$.yEGP49D4TXW3GAlrcXpgudKIgDJS8r/zwCKi0w6UaIxc91nOQSSG | factor=12
+carlos_mora | $2a$12$rb8CKgWlUuY8iQP22lxnqeyDBchxA1gambjKWWEQoXEXkLKGCjTQS | factor=12
+maria_rojas | $2a$12$I2vRCzYKtoPRdswA3z2B1.YNJ8khBNApozBuNdh9rbWtSyDHC9A0. | factor=12
+juan_perez | $2a$12$dAQwV2spycHpb0rKblSnoeWIa.etfmf3SowgIQAtT0RdekwKfZxKC | factor=12
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "admin",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "admin",
+  "nombreCompleto": "Administrador General de Sistemas",
+  "rol": "ADMIN",
+  "usuarioId": 1
+}
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "auditor_seguridad",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "auditor_seguridad",
+  "nombreCompleto": "Lic. Esteban Solano Chaves",
+  "rol": "AUDITOR",
+  "usuarioId": 2
+}
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "maria_rojas",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "maria_rojas",
+  "nombreCompleto": "María Rojas Soto",
+  "rol": "CLIENTE",
+  "usuarioId": 4
+}
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "juan_perez",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "juan_perez",
+  "nombreCompleto": "Juan Pérez Delgado",
+  "rol": "CLIENTE",
+  "usuarioId": 5
+}
+
+CLAVE INCORRECTA RECHAZADA
+POST https://localhost:8080/api/auth/login
+{
+  "username": "carlos_mora",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 401 | application/problem+json
+{
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Credenciales invalidas.",
+  "instance": "/api/auth/login"
+}
+CONFIRMADO: cinco hashes con factor 12; cinco inicios de sesion HTTP 200; clave incorrecta HTTP 401.

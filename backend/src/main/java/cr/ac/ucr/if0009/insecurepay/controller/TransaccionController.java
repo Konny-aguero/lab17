@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/transacciones")
@@ -20,33 +21,28 @@ public class TransaccionController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TransaccionDto>> listarTodas() {
-        return ResponseEntity.ok(transaccionService.listarTodas());
+    public ResponseEntity<List<TransaccionDto>> listarTodas(@RequestHeader(value = "Authorization", required = false) String auth) {
+        return ResponseEntity.ok(transaccionService.listarTodas(auth));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TransaccionDto> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(transaccionService.obtenerPorId(id));
+    public ResponseEntity<TransaccionDto> obtenerPorId(@PathVariable Long id, @RequestHeader(value = "Authorization", required = false) String auth) {
+        return ResponseEntity.ok(transaccionService.obtenerPorId(id, auth));
     }
 
     @GetMapping("/cuenta/{cuentaId}")
-    public ResponseEntity<List<TransaccionDto>> obtenerPorCuenta(@PathVariable Long cuentaId) {
-        return ResponseEntity.ok(transaccionService.obtenerPorCuenta(cuentaId));
+    public ResponseEntity<List<TransaccionDto>> obtenerPorCuenta(@PathVariable Long cuentaId, @RequestHeader(value = "Authorization", required = false) String auth) {
+        return ResponseEntity.ok(transaccionService.obtenerPorCuenta(cuentaId, auth));
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A03:2021 - SQL Injection]
-    // Endpoint para buscar transacciones vulnerable a inyeccion SQL en el parametro 'termino'
     @GetMapping("/buscar")
-    public ResponseEntity<List<TransaccionDto>> buscarPorConcepto(@RequestParam("termino") String termino) {
-        return ResponseEntity.ok(transaccionService.buscarPorConcepto(termino));
+    public ResponseEntity<List<TransaccionDto>> buscarPorConcepto(@RequestParam("termino") String termino, @RequestHeader(value = "Authorization", required = false) String auth) {
+        return ResponseEntity.ok(transaccionService.buscarPorConcepto(termino, auth));
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR en Transferencias]
-    // [VULNERABILIDAD INTENCIONADA: A03:2021 - Stored XSS]
     @PostMapping("/transferir")
-    public ResponseEntity<TransaccionDto> transferir(@RequestBody TransferenciaDto dto) {
-        TransaccionDto resultado = transaccionService.transferir(dto);
+    public ResponseEntity<TransaccionDto> transferir(@Valid @RequestBody TransferenciaDto dto, @RequestHeader(value = "Authorization", required = false) String auth) {
+        TransaccionDto resultado = transaccionService.transferir(dto, auth);
         return ResponseEntity.status(HttpStatus.CREATED).body(resultado);
     }
 }
-

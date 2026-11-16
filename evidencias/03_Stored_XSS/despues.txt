@@ -1,0 +1,59 @@
+LABORATORIO 17 - VERIFICACION XSS
+Fecha UTC: 2026-11-14T23:19:16.688637+00:00
+Destino local: https://localhost:8080
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "carlos_mora",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "carlos_mora",
+  "nombreCompleto": "Carlos Mora Morales",
+  "rol": "CLIENTE",
+  "usuarioId": 3
+}
+
+TRANSFERENCIA PROPIA DE 1 COLON CON TEXTO DE PRUEBA
+POST https://localhost:8080/api/transacciones/transferir
+{
+  "cuentaOrigenId": 2,
+  "numeroCuentaDestino": "CR05015202001026458902",
+  "monto": 1,
+  "conceptoHtml": "<img src=\"x\" onerror=\"alert('AUDITORIA XSS CONFIRMADA')\">"
+}
+HTTP 201 | application/json
+{
+  "id": 6,
+  "cuentaOrigenId": 2,
+  "numeroCuentaOrigen": "CR05015202001026458901",
+  "titularOrigen": "Carlos Mora Morales",
+  "cuentaDestinoId": 3,
+  "numeroCuentaDestino": "CR05015202001026458902",
+  "titularDestino": "María Rojas Soto",
+  "monto": 1,
+  "conceptoHtml": "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#39;AUDITORIA XSS CONFIRMADA&#39;)&quot;&gt;",
+  "fecha": "2026-11-14T17:19:21.4112597",
+  "estado": "COMPLETADA"
+}
+
+COMPROBANTE GUARDADO
+GET https://localhost:8080/api/transacciones/6
+HTTP 200 | application/json
+{
+  "id": 6,
+  "cuentaOrigenId": 2,
+  "numeroCuentaOrigen": "CR05015202001026458901",
+  "titularOrigen": "Carlos Mora Morales",
+  "cuentaDestinoId": 3,
+  "numeroCuentaDestino": "CR05015202001026458902",
+  "titularDestino": "María Rojas Soto",
+  "monto": 1.0,
+  "conceptoHtml": "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#39;AUDITORIA XSS CONFIRMADA&#39;)&quot;&gt;",
+  "fecha": "2026-11-14T17:19:21.41126",
+  "estado": "COMPLETADA"
+}
+CONFIRMADO: HTML escapado antes de guardar. Abra Movimientos y el comprobante #6 para comprobar la visualizacion en el navegador.

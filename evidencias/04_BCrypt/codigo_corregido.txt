@@ -1,0 +1,33 @@
+ARCHIVO: backend/src/main/java/cr/ac/ucr/if0009/insecurepay/config/PasswordConfig.java
+LINEAS: 8-14
+8: @Configuration
+9: public class PasswordConfig {
+10:     @Bean
+11:     public PasswordEncoder passwordEncoder() {
+12:         return new BCryptPasswordEncoder(12);
+13:     }
+14: }
+
+ARCHIVO: backend/src/main/java/cr/ac/ucr/if0009/insecurepay/service/AuthService.java
+LINEAS: 27-38
+27:     public LoginResponse autenticar(LoginRequest request) {
+28:         Usuario usuario = usuarioRepository.findByUsername(request.getUsername()).orElse(null);
+29:         boolean coincide = passwordEncoder.matches(request.getPassword(),
+30:                 usuario == null ? dummyHash : usuario.getPassword());
+31:         if (!coincide || usuario == null) {
+32:             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales invalidas.");
+33:         }
+34:         String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getRol().name(), usuario.getId());
+35:         return new LoginResponse(token, usuario.getUsername(), usuario.getNombreCompleto(),
+36:                 usuario.getRol().name(), usuario.getId());
+37:     }
+38: }
+
+ARCHIVO: backend/src/main/resources/data.sql
+LINEAS: 1-6
+1: INSERT INTO USUARIOS (username, password, nombre_completo, email, rol) VALUES
+2: ('admin', '$2a$12$fn28LWqh2.Ce2.wLjsgmyeoGZaSVlpvA4MARp9hnDracpObn.nHLC', 'Administrador General de Sistemas', 'admin@insecurepay.fi.cr', 'ADMIN'),
+3: ('auditor_seguridad', '$2a$12$.yEGP49D4TXW3GAlrcXpgudKIgDJS8r/zwCKi0w6UaIxc91nOQSSG', 'Lic. Esteban Solano Chaves', 'esolano@insecurepay.fi.cr', 'AUDITOR'),
+4: ('carlos_mora', '$2a$12$rb8CKgWlUuY8iQP22lxnqeyDBchxA1gambjKWWEQoXEXkLKGCjTQS', 'Carlos Mora Morales', 'cmora@correo.cr', 'CLIENTE'),
+5: ('maria_rojas', '$2a$12$I2vRCzYKtoPRdswA3z2B1.YNJ8khBNApozBuNdh9rbWtSyDHC9A0.', 'María Rojas Soto', 'mrojas@empresa.cr', 'CLIENTE'),
+6: ('juan_perez', '$2a$12$dAQwV2spycHpb0rKblSnoeWIa.etfmf3SowgIQAtT0RdekwKfZxKC', 'Juan Pérez Delgado', 'jperez@correo.cr', 'CLIENTE');

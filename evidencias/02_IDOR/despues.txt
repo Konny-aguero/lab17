@@ -1,0 +1,77 @@
+LABORATORIO 17 - VERIFICACION IDOR
+Fecha UTC: 2026-11-14T23:19:03.464028+00:00
+Destino local: https://localhost:8080
+
+INICIO DE SESION
+POST https://localhost:8080/api/auth/login
+{
+  "username": "carlos_mora",
+  "password": "[CLAVE OMITIDA]"
+}
+HTTP 200 | application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "carlos_mora",
+  "nombreCompleto": "Carlos Mora Morales",
+  "rol": "CLIENTE",
+  "usuarioId": 3
+}
+
+CUENTA PROPIA DE CARLOS
+GET https://localhost:8080/api/cuentas/2/saldo
+HTTP 200 | application/json
+{
+  "moneda": "CRC",
+  "saldo": 249999.0,
+  "cuentaId": 2,
+  "numeroCuenta": "CR05015202001026458901"
+}
+
+CUENTA AJENA DE MARIA
+GET https://localhost:8080/api/cuentas/3/saldo
+HTTP 403 | application/problem+json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/cuentas/3/saldo"
+}
+
+SALDO PROPIO ANTES DEL INTENTO
+GET https://localhost:8080/api/cuentas/2/saldo
+HTTP 200 | application/json
+{
+  "moneda": "CRC",
+  "saldo": 249999.0,
+  "cuentaId": 2,
+  "numeroCuenta": "CR05015202001026458901"
+}
+
+INTENTO DE DEBITAR A MARIA
+POST https://localhost:8080/api/transacciones/transferir
+{
+  "cuentaOrigenId": 3,
+  "numeroCuentaDestino": "CR05015202001026458901",
+  "monto": 1,
+  "conceptoHtml": "Prueba controlada IDOR"
+}
+HTTP 403 | application/problem+json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/transacciones/transferir"
+}
+
+SALDO PROPIO DESPUES DEL INTENTO
+GET https://localhost:8080/api/cuentas/2/saldo
+HTTP 200 | application/json
+{
+  "moneda": "CRC",
+  "saldo": 249999.0,
+  "cuentaId": 2,
+  "numeroCuenta": "CR05015202001026458901"
+}
+CONFIRMADO: cuenta propia HTTP 200; cuenta y debito ajenos HTTP 403.

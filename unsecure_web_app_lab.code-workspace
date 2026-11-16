@@ -1,12 +1,8 @@
 {
   "folders": [
     {
-      "name": "Backend (Spring Boot 3 + H2)",
-      "path": "backend"
-    },
-    {
-      "name": "Frontend (Angular 19)",
-      "path": "frontend"
+      "name": "Laboratorio 17 - InsecurePay",
+      "path": "."
     }
   ],
   "settings": {
@@ -30,4 +26,3 @@
     ]
   }
 }
-

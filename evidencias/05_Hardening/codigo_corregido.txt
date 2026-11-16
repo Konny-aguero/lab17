@@ -1,0 +1,49 @@
+ARCHIVO: backend/src/main/resources/application.properties
+LINEAS: 11-21
+11: spring.h2.console.enabled=false
+12: spring.h2.console.settings.web-allow-others=false
+13: spring.jpa.hibernate.ddl-auto=none
+14: spring.sql.init.mode=always
+15: spring.jpa.show-sql=false
+16: server.error.include-message=never
+17: server.error.include-stacktrace=never
+18: server.error.include-binding-errors=never
+19: server.error.include-exception=false
+20: jwt.secret=${JWT_SECRET}
+21: jwt.expiration-ms=3600000
+
+ARCHIVO: backend/src/main/java/cr/ac/ucr/if0009/insecurepay/controller/GlobalExceptionHandler.java
+LINEAS: 14-33
+14: @RestControllerAdvice
+15: public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+16:     @ExceptionHandler(ResponseStatusException.class)
+17:     public ProblemDetail acceso(ResponseStatusException ex) {
+18:         return ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());
+19:     }
+20: 
+21:     @ExceptionHandler(Exception.class)
+22:     public ProblemDetail inesperado(Exception ex) {
+23:         return ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+24:                 "No fue posible procesar la solicitud.");
+25:     }
+26: 
+27:     @Override
+28:     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body,
+29:             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+30:         return super.handleExceptionInternal(ex,
+31:                 ProblemDetail.forStatusAndDetail(status, "Solicitud no valida."), headers, status, request);
+32:     }
+33: }
+
+ARCHIVO: backend/src/main/java/cr/ac/ucr/if0009/insecurepay/util/JwtUtil.java
+LINEAS: 17-26
+17:     public JwtUtil(@Value("${jwt.secret}") String secret,
+18:                    @Value("${jwt.expiration-ms}") long expirationMs) {
+19:         byte[] decoded = Decoders.BASE64.decode(secret);
+20:         if (decoded.length < 32) {
+21:             throw new IllegalArgumentException("JWT_SECRET requiere al menos 256 bits en Base64.");
+22:         }
+23:         this.key = Keys.hmacShaKeyFor(decoded);
+24:         this.expirationMs = expirationMs;
+25:     }
+26:

@@ -15,8 +15,8 @@ import { Cuenta, TransferenciaRequest } from '../../models/banco.model';
 export class TransferirComponent implements OnInit {
   todasLasCuentas: Cuenta[] = [];
   transferencia: TransferenciaRequest = {
-    cuentaOrigenId: 2, // Por defecto cuenta de Maria Rojas (IDOR audit vector!)
-    numeroCuentaDestino: 'CR05015202001026458901', // Cuenta de Carlos Mora
+    cuentaOrigenId: 0,
+    numeroCuentaDestino: '',
     monto: 50000,
     conceptoHtml: '<p>Transferencia por servicios prestados.</p>'
   };
@@ -32,9 +32,11 @@ export class TransferirComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.bancoService.listarTodasLasCuentas().subscribe({
+    if (!this.authService.currentUser()) return;
+    this.bancoService.obtenerCuentasUsuario(this.authService.currentUser()!.usuarioId).subscribe({
       next: (cuentas) => {
         this.todasLasCuentas = cuentas;
+        this.transferencia.cuentaOrigenId = cuentas[0]?.id ?? 0;
       }
     });
   }
@@ -59,7 +61,7 @@ export class TransferirComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMsg = 'Error en la transacción: ' + (err.error?.message || err.message);
+        this.errorMsg = 'Error en la transacción: ' + (err.error?.detail || 'Solicitud rechazada.');
       }
     });
   }
@@ -74,4 +76,3 @@ export class TransferirComponent implements OnInit {
     }
   }
 }
-

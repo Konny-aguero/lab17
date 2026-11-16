@@ -23,8 +23,6 @@ public class Transaccion {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal monto;
 
-    // [VULNERABILIDAD INTENCIONADA: A03:2021 - Injection (Stored XSS)]
-    // Almacena cadenas HTML y scripts arbitrarios en la base de datos sin sanitizar
     @Lob
     @Column(name = "concepto_html")
     private String conceptoHtml;
@@ -48,7 +46,7 @@ public class Transaccion {
     public Transaccion() {
     }
 
-    public Transaccion(CuentaBancaria cuentaOrigen, CuentaBancaria cuentaDestino, 
+    public Transaccion(CuentaBancaria cuentaOrigen, CuentaBancaria cuentaDestino,
                        BigDecimal monto, String conceptoHtml) {
         this.cuentaOrigen = cuentaOrigen;
         this.cuentaDestino = cuentaDestino;

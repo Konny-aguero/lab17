@@ -1,0 +1,14 @@
+{
+  "fechaUTC": "2026-11-14T23:20:36.174Z",
+  "login": "correcto",
+  "cuentaPropia": "visible",
+  "cuentaAjena": 403,
+  "origenesPermitidos": [
+    "Cuenta #2 - Carlos Mora Morales (CR05015202001026458901) - Saldo: ₡249,998.00"
+  ],
+  "transferenciaPropia": "HTTP 201 y redireccion a Movimientos",
+  "monto": 1,
+  "busquedaNormal": "HTTP 200, un resultado",
+  "comprobante": "texto visible",
+  "erroresJavaScript": []
+}

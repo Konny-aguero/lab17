@@ -6,8 +6,10 @@ import cr.ac.ucr.if0009.insecurepay.model.CuentaBancaria;
 import cr.ac.ucr.if0009.insecurepay.model.Transaccion;
 import cr.ac.ucr.if0009.insecurepay.repository.CuentaRepository;
 import cr.ac.ucr.if0009.insecurepay.repository.TransaccionRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import cr.ac.ucr.if0009.insecurepay.model.Usuario;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,81 +23,86 @@ public class TransaccionService {
     private final TransaccionRepository transaccionRepository;
     private final CuentaRepository cuentaRepository;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private final AccesoService acceso;
+    private final CuentaService cuentas;
 
-    public TransaccionService(TransaccionRepository transaccionRepository, CuentaRepository cuentaRepository) {
+    public TransaccionService(TransaccionRepository transaccionRepository, CuentaRepository cuentaRepository,
+            AccesoService acceso, CuentaService cuentas) {
         this.transaccionRepository = transaccionRepository;
         this.cuentaRepository = cuentaRepository;
+        this.acceso = acceso;
+        this.cuentas = cuentas;
     }
 
-    public List<TransaccionDto> listarTodas() {
+    public List<TransaccionDto> listarTodas(String auth) {
+        Usuario usuario = acceso.autenticar(auth);
         return transaccionRepository.findAll().stream()
+                .filter(t -> puedeLeer(t, usuario))
                 .map(this::convertirADto)
                 .collect(Collectors.toList());
     }
 
-    public TransaccionDto obtenerPorId(Long id) {
+    public TransaccionDto obtenerPorId(Long id, String auth) {
+        Usuario usuario = acceso.autenticar(auth);
         Transaccion transaccion = transaccionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Transaccion no encontrada con ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaccion no encontrada."));
+        if (!puedeLeer(transaccion, usuario)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso no autorizado a transaccion ajena.");
+        }
         return convertirADto(transaccion);
     }
 
-    public List<TransaccionDto> obtenerPorCuenta(Long cuentaId) {
+    public List<TransaccionDto> obtenerPorCuenta(Long cuentaId, String auth) {
+        cuentas.obtenerPorId(cuentaId, auth);
         return transaccionRepository.findByCuentaOrigenIdOrCuentaDestinoIdOrderByFechaDesc(cuentaId, cuentaId).stream()
                 .map(this::convertirADto)
                 .collect(Collectors.toList());
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A03:2021 - SQL Injection (SQLi)]
-    // Concatenacion insegura directa del parametro en createNativeQuery sin Prepared Statements
-    // Payload tipico de exfiltracion: ' OR '1'='1
-    @SuppressWarnings("unchecked")
-    public List<TransaccionDto> buscarPorConcepto(String termino) {
-        String sql = "SELECT * FROM TRANSACCIONES WHERE concepto_html LIKE '%" + termino 
-                   + "%' OR estado LIKE '%" + termino + "%'";
-
-        System.out.println("[AUDITORIA FORENSE INSECUREPAY] Ejecutando consulta SQL vulnerable: " + sql);
-
-        List<Transaccion> resultados = entityManager.createNativeQuery(sql, Transaccion.class)
-                .getResultList();
-
-        return resultados.stream()
-                .map(this::convertirADto)
-                .collect(Collectors.toList());
+    public List<TransaccionDto> buscarPorConcepto(String termino, String auth) {
+        Usuario usuario = acceso.autenticar(auth);
+        if (termino == null || termino.isBlank()) return List.of();
+        return transaccionRepository.buscarPorTerminoSeguro(termino.trim(), usuario.getId(),
+                acceso.puedeAuditar(usuario)).stream().map(this::convertirADto).toList();
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR en Transferencias Bancarias]
-    // [VULNERABILIDAD INTENCIONADA: A03:2021 - Stored XSS en concepto_html]
+    private boolean puedeLeer(Transaccion transaccion, Usuario usuario) {
+        return acceso.puedeAuditar(usuario)
+                || transaccion.getCuentaOrigen().getUsuario().getId().equals(usuario.getId())
+                || transaccion.getCuentaDestino().getUsuario().getId().equals(usuario.getId());
+    }
+
     @Transactional
-    public TransaccionDto transferir(TransferenciaDto dto) {
+    public TransaccionDto transferir(TransferenciaDto dto, String auth) {
+        Usuario usuario = acceso.autenticar(auth);
         if (dto.getMonto() == null || dto.getMonto().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("El monto a transferir debe ser mayor a cero.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El monto debe ser mayor a cero.");
         }
 
-        // IDOR: No se valida si cuentaOrigenId pertenece al usuario autenticado en la sesion
         CuentaBancaria cuentaOrigen = cuentaRepository.findById(dto.getCuentaOrigenId())
-                .orElseThrow(() -> new RuntimeException("Cuenta de origen no encontrada con ID: " + dto.getCuentaOrigenId()));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta de origen no encontrada."));
 
+        acceso.exigirPropietario(usuario, cuentaOrigen.getUsuario().getId(), false);
         CuentaBancaria cuentaDestino = cuentaRepository.findByNumeroCuenta(dto.getNumeroCuentaDestino())
-                .orElseThrow(() -> new RuntimeException("Cuenta de destino no encontrada con numero: " + dto.getNumeroCuentaDestino()));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta de destino no encontrada."));
 
+        if (cuentaOrigen.getId().equals(cuentaDestino.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Seleccione otra cuenta de destino.");
+        }
         if (cuentaOrigen.getSaldo().compareTo(dto.getMonto()) < 0) {
-            throw new RuntimeException("Fondos insuficientes en la cuenta de origen seleccionada.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fondos insuficientes.");
         }
 
-        // Efectuar debito y credito
         cuentaOrigen.setSaldo(cuentaOrigen.getSaldo().subtract(dto.getMonto()));
         cuentaDestino.setSaldo(cuentaDestino.getSaldo().add(dto.getMonto()));
         cuentaRepository.save(cuentaOrigen);
         cuentaRepository.save(cuentaDestino);
 
-        // Guardar transaccion con concepto HTML arbitrario (Stored XSS sink)
         Transaccion transaccion = new Transaccion();
         transaccion.setCuentaOrigen(cuentaOrigen);
         transaccion.setCuentaDestino(cuentaDestino);
         transaccion.setMonto(dto.getMonto());
-        transaccion.setConceptoHtml(dto.getConceptoHtml());
+        transaccion.setConceptoHtml(HtmlUtils.htmlEscape(dto.getConceptoHtml() == null ? "" : dto.getConceptoHtml()));
         transaccion.setEstado("COMPLETADA");
 
         Transaccion guardada = transaccionRepository.save(transaccion);
@@ -118,4 +125,3 @@ public class TransaccionService {
         return dto;
     }
 }
-

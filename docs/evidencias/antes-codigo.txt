@@ -1,0 +1,535 @@
+FILE backend/src/main/java/cr/ac/ucr/if0009/insecurepay/service/TransaccionService.java
+1: package cr.ac.ucr.if0009.insecurepay.service;
+2: 
+3: import cr.ac.ucr.if0009.insecurepay.dto.TransaccionDto;
+4: import cr.ac.ucr.if0009.insecurepay.dto.TransferenciaDto;
+5: import cr.ac.ucr.if0009.insecurepay.model.CuentaBancaria;
+6: import cr.ac.ucr.if0009.insecurepay.model.Transaccion;
+7: import cr.ac.ucr.if0009.insecurepay.repository.CuentaRepository;
+8: import cr.ac.ucr.if0009.insecurepay.repository.TransaccionRepository;
+9: import jakarta.persistence.EntityManager;
+10: import jakarta.persistence.PersistenceContext;
+11: import org.springframework.stereotype.Service;
+12: import org.springframework.transaction.annotation.Transactional;
+13: 
+14: import java.math.BigDecimal;
+15: import java.util.List;
+16: import java.util.stream.Collectors;
+17: 
+18: @Service
+19: public class TransaccionService {
+20: 
+21:     private final TransaccionRepository transaccionRepository;
+22:     private final CuentaRepository cuentaRepository;
+23: 
+24:     @PersistenceContext
+25:     private EntityManager entityManager;
+26: 
+27:     public TransaccionService(TransaccionRepository transaccionRepository, CuentaRepository cuentaRepository) {
+28:         this.transaccionRepository = transaccionRepository;
+29:         this.cuentaRepository = cuentaRepository;
+30:     }
+31: 
+32:     public List<TransaccionDto> listarTodas() {
+33:         return transaccionRepository.findAll().stream()
+34:                 .map(this::convertirADto)
+35:                 .collect(Collectors.toList());
+36:     }
+37: 
+38:     public TransaccionDto obtenerPorId(Long id) {
+39:         Transaccion transaccion = transaccionRepository.findById(id)
+40:                 .orElseThrow(() -> new RuntimeException("Transaccion no encontrada con ID: " + id));
+41:         return convertirADto(transaccion);
+42:     }
+43: 
+44:     public List<TransaccionDto> obtenerPorCuenta(Long cuentaId) {
+45:         return transaccionRepository.findByCuentaOrigenIdOrCuentaDestinoIdOrderByFechaDesc(cuentaId, cuentaId).stream()
+46:                 .map(this::convertirADto)
+47:                 .collect(Collectors.toList());
+48:     }
+49: 
+50:     // [VULNERABILIDAD INTENCIONADA: A03:2021 - SQL Injection (SQLi)]
+51:     // Concatenacion insegura directa del parametro en createNativeQuery sin Prepared Statements
+52:     // Payload tipico de exfiltracion: ' OR '1'='1
+53:     @SuppressWarnings("unchecked")
+54:     public List<TransaccionDto> buscarPorConcepto(String termino) {
+55:         String sql = "SELECT * FROM TRANSACCIONES WHERE concepto_html LIKE '%" + termino 
+56:                    + "%' OR estado LIKE '%" + termino + "%'";
+57: 
+58:         System.out.println("[AUDITORIA FORENSE INSECUREPAY] Ejecutando consulta SQL vulnerable: " + sql);
+59: 
+60:         List<Transaccion> resultados = entityManager.createNativeQuery(sql, Transaccion.class)
+61:                 .getResultList();
+62: 
+63:         return resultados.stream()
+64:                 .map(this::convertirADto)
+65:                 .collect(Collectors.toList());
+66:     }
+67: 
+68:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR en Transferencias Bancarias]
+69:     // [VULNERABILIDAD INTENCIONADA: A03:2021 - Stored XSS en concepto_html]
+70:     @Transactional
+71:     public TransaccionDto transferir(TransferenciaDto dto) {
+72:         if (dto.getMonto() == null || dto.getMonto().compareTo(BigDecimal.ZERO) <= 0) {
+73:             throw new RuntimeException("El monto a transferir debe ser mayor a cero.");
+74:         }
+75: 
+76:         // IDOR: No se valida si cuentaOrigenId pertenece al usuario autenticado en la sesion
+77:         CuentaBancaria cuentaOrigen = cuentaRepository.findById(dto.getCuentaOrigenId())
+78:                 .orElseThrow(() -> new RuntimeException("Cuenta de origen no encontrada con ID: " + dto.getCuentaOrigenId()));
+79: 
+80:         CuentaBancaria cuentaDestino = cuentaRepository.findByNumeroCuenta(dto.getNumeroCuentaDestino())
+81:                 .orElseThrow(() -> new RuntimeException("Cuenta de destino no encontrada con numero: " + dto.getNumeroCuentaDestino()));
+82: 
+83:         if (cuentaOrigen.getSaldo().compareTo(dto.getMonto()) < 0) {
+84:             throw new RuntimeException("Fondos insuficientes en la cuenta de origen seleccionada.");
+85:         }
+86: 
+87:         // Efectuar debito y credito
+88:         cuentaOrigen.setSaldo(cuentaOrigen.getSaldo().subtract(dto.getMonto()));
+89:         cuentaDestino.setSaldo(cuentaDestino.getSaldo().add(dto.getMonto()));
+90:         cuentaRepository.save(cuentaOrigen);
+91:         cuentaRepository.save(cuentaDestino);
+92: 
+93:         // Guardar transaccion con concepto HTML arbitrario (Stored XSS sink)
+94:         Transaccion transaccion = new Transaccion();
+95:         transaccion.setCuentaOrigen(cuentaOrigen);
+96:         transaccion.setCuentaDestino(cuentaDestino);
+97:         transaccion.setMonto(dto.getMonto());
+98:         transaccion.setConceptoHtml(dto.getConceptoHtml());
+99:         transaccion.setEstado("COMPLETADA");
+100: 
+101:         Transaccion guardada = transaccionRepository.save(transaccion);
+102:         return convertirADto(guardada);
+103:     }
+104: 
+105:     private TransaccionDto convertirADto(Transaccion t) {
+106:         TransaccionDto dto = new TransaccionDto();
+107:         dto.setId(t.getId());
+108:         dto.setCuentaOrigenId(t.getCuentaOrigen().getId());
+109:         dto.setNumeroCuentaOrigen(t.getCuentaOrigen().getNumeroCuenta());
+110:         dto.setTitularOrigen(t.getCuentaOrigen().getUsuario().getNombreCompleto());
+111:         dto.setCuentaDestinoId(t.getCuentaDestino().getId());
+112:         dto.setNumeroCuentaDestino(t.getCuentaDestino().getNumeroCuenta());
+113:         dto.setTitularDestino(t.getCuentaDestino().getUsuario().getNombreCompleto());
+114:         dto.setMonto(t.getMonto());
+115:         dto.setConceptoHtml(t.getConceptoHtml());
+116:         dto.setFecha(t.getFecha());
+117:         dto.setEstado(t.getEstado());
+118:         return dto;
+119:     }
+120: }
+121: 
+
+FILE backend/src/main/java/cr/ac/ucr/if0009/insecurepay/service/CuentaService.java
+1: package cr.ac.ucr.if0009.insecurepay.service;
+2: 
+3: import cr.ac.ucr.if0009.insecurepay.dto.CuentaDto;
+4: import cr.ac.ucr.if0009.insecurepay.model.CuentaBancaria;
+5: import cr.ac.ucr.if0009.insecurepay.repository.CuentaRepository;
+6: import org.springframework.stereotype.Service;
+7: 
+8: import java.util.List;
+9: import java.util.stream.Collectors;
+10: 
+11: @Service
+12: public class CuentaService {
+13: 
+14:     private final CuentaRepository cuentaRepository;
+15: 
+16:     public CuentaService(CuentaRepository cuentaRepository) {
+17:         this.cuentaRepository = cuentaRepository;
+18:     }
+19: 
+20:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - Broken Access Control]
+21:     // Retorna todas las cuentas del banco sin verificar privilegios de administrador
+22:     public List<CuentaDto> listarTodas() {
+23:         return cuentaRepository.findAll().stream()
+24:                 .map(this::convertirADto)
+25:                 .collect(Collectors.toList());
+26:     }
+27: 
+28:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR (Insecure Direct Object Reference)]
+29:     // Permite consultar los fondos y datos de cualquier cuenta bancaria alterando el {id}
+30:     public CuentaDto obtenerPorId(Long id) {
+31:         CuentaBancaria cuenta = cuentaRepository.findById(id)
+32:                 .orElseThrow(() -> new RuntimeException("Cuenta bancaria no encontrada con ID: " + id));
+33:         return convertirADto(cuenta);
+34:     }
+35: 
+36:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - BOLA]
+37:     // Permite listar todas las cuentas de cualquier cliente alterando el usuarioId
+38:     public List<CuentaDto> obtenerPorUsuario(Long usuarioId) {
+39:         return cuentaRepository.findByUsuarioId(usuarioId).stream()
+40:                 .map(this::convertirADto)
+41:                 .collect(Collectors.toList());
+42:     }
+43: 
+44:     private CuentaDto convertirADto(CuentaBancaria cuenta) {
+45:         CuentaDto dto = new CuentaDto();
+46:         dto.setId(cuenta.getId());
+47:         dto.setUsuarioId(cuenta.getUsuario().getId());
+48:         dto.setTitular(cuenta.getUsuario().getNombreCompleto());
+49:         dto.setNumeroCuenta(cuenta.getNumeroCuenta());
+50:         dto.setTipoCuenta(cuenta.getTipoCuenta().name());
+51:         dto.setSaldo(cuenta.getSaldo());
+52:         dto.setMoneda(cuenta.getMoneda());
+53:         dto.setActiva(cuenta.getActiva());
+54:         return dto;
+55:     }
+56: }
+57: 
+
+FILE backend/src/main/java/cr/ac/ucr/if0009/insecurepay/service/AuthService.java
+1: package cr.ac.ucr.if0009.insecurepay.service;
+2: 
+3: import cr.ac.ucr.if0009.insecurepay.dto.LoginRequest;
+4: import cr.ac.ucr.if0009.insecurepay.dto.LoginResponse;
+5: import cr.ac.ucr.if0009.insecurepay.model.Usuario;
+6: import cr.ac.ucr.if0009.insecurepay.repository.UsuarioRepository;
+7: import cr.ac.ucr.if0009.insecurepay.util.JwtUtil;
+8: import org.springframework.stereotype.Service;
+9: 
+10: @Service
+11: public class AuthService {
+12: 
+13:     private final UsuarioRepository usuarioRepository;
+14:     private final JwtUtil jwtUtil;
+15: 
+16:     public AuthService(UsuarioRepository usuarioRepository, JwtUtil jwtUtil) {
+17:         this.usuarioRepository = usuarioRepository;
+18:         this.jwtUtil = jwtUtil;
+19:     }
+20: 
+21:     // [VULNERABILIDAD INTENCIONADA: A07:2021 - Identification & Authentication Failures]
+22:     // Comparacion directa de contrasenas en texto plano sin BCryptPasswordEncoder
+23:     public LoginResponse autenticar(LoginRequest request) {
+24:         Usuario usuario = usuarioRepository.findByUsername(request.getUsername())
+25:                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado en InsecurePay: " + request.getUsername()));
+26: 
+27:         if (!usuario.getPassword().equals(request.getPassword())) {
+28:             throw new RuntimeException("Credenciales invalidas para el usuario: " + request.getUsername());
+29:         }
+30: 
+31:         String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getRol().name(), usuario.getId());
+32: 
+33:         return new LoginResponse(
+34:                 token,
+35:                 usuario.getUsername(),
+36:                 usuario.getNombreCompleto(),
+37:                 usuario.getRol().name(),
+38:                 usuario.getId()
+39:         );
+40:     }
+41: }
+42: 
+
+FILE backend/src/main/java/cr/ac/ucr/if0009/insecurepay/controller/CuentaController.java
+1: package cr.ac.ucr.if0009.insecurepay.controller;
+2: 
+3: import cr.ac.ucr.if0009.insecurepay.dto.CuentaDto;
+4: import cr.ac.ucr.if0009.insecurepay.service.CuentaService;
+5: import org.springframework.http.ResponseEntity;
+6: import org.springframework.web.bind.annotation.*;
+7: 
+8: import java.util.List;
+9: 
+10: @RestController
+11: @RequestMapping("/api/cuentas")
+12: public class CuentaController {
+13: 
+14:     private final CuentaService cuentaService;
+15: 
+16:     public CuentaController(CuentaService cuentaService) {
+17:         this.cuentaService = cuentaService;
+18:     }
+19: 
+20:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - Broken Access Control]
+21:     // Expone todas las cuentas y balances del banco publicamente
+22:     @GetMapping
+23:     public ResponseEntity<List<CuentaDto>> listarTodas() {
+24:         return ResponseEntity.ok(cuentaService.listarTodas());
+25:     }
+26: 
+27:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR]
+28:     // Consulta de balance y numero de cuenta por ID sin autenticacion ni autorizacion
+29:     @GetMapping("/{id}")
+30:     public ResponseEntity<CuentaDto> obtenerPorId(@PathVariable Long id) {
+31:         return ResponseEntity.ok(cuentaService.obtenerPorId(id));
+32:     }
+33: 
+34:     // [VULNERABILIDAD INTENCIONADA: A01:2021 - BOLA]
+35:     // Consulta todas las cuentas asociadas a un ID de usuario arbitrario
+36:     @GetMapping("/usuario/{usuarioId}")
+37:     public ResponseEntity<List<CuentaDto>> obtenerPorUsuario(@PathVariable Long usuarioId) {
+38:         return ResponseEntity.ok(cuentaService.obtenerPorUsuario(usuarioId));
+39:     }
+40: }
+41: 
+
+FILE backend/src/main/resources/application.properties
+1: # ==============================================================================
+2: # InsecurePay Backend - Configuracion de la Billetera Digital
+3: # NOTA PEDAGOGICA: Contiene configuraciones intencionalmente vulnerables
+4: # ==============================================================================
+5: 
+6: server.port=8080
+7: 
+8: # Configuracion de Base de Datos H2 en Memoria
+9: spring.datasource.url=jdbc:h2:mem:insecure_pay_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+10: spring.datasource.driverClassName=org.h2.Driver
+11: spring.datasource.username=sa
+12: spring.datasource.password=
+13: 
+14: # Consola Web H2 (Acceso abierto a datos de la entidad financiera)
+15: spring.h2.console.enabled=true
+16: spring.h2.console.path=/h2-console
+17: spring.h2.console.settings.web-allow-others=true
+18: 
+19: # Hibernate & JPA
+20: spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+21: spring.jpa.hibernate.ddl-auto=none
+22: spring.sql.init.mode=always
+23: spring.jpa.show-sql=true
+24: spring.jpa.properties.hibernate.format_sql=true
+25: 
+26: # [VULNERABILIDAD INTENCIONADA: A05:2021 - Security Misconfiguration]
+27: # Fuga de Stack Traces y detalles internos de base de datos ante errores no controlados
+28: server.error.include-message=always
+29: server.error.include-stacktrace=always
+30: server.error.include-binding-errors=always
+31: 
+32: # [VULNERABILIDAD INTENCIONADA: A02:2021 - Cryptographic Failures]
+33: # Clave secreta simetrica debil y predecible quemada en archivo de texto plano
+34: jwt.secret=ClaveSecretaSuperDebilInsecurePayBanco2026
+35: jwt.expiration-ms=86400000
+36: 
+
+FILE backend/src/main/resources/data.sql
+1: -- ==============================================================================
+2: -- Datos Iniciales de Prueba - InsecurePay Digital Banking Portal
+3: -- NOTA: Credenciales almacenadas en TEXTO PLANO intencionalmente para la auditoria
+4: -- ==============================================================================
+5: 
+6: INSERT INTO USUARIOS (username, password, nombre_completo, email, rol) VALUES
+7: ('admin', 'admin123', 'Administrador General de Sistemas', 'admin@insecurepay.fi.cr', 'ADMIN'),
+8: ('auditor_seguridad', 'auditor2026', 'Lic. Esteban Solano Chaves', 'esolano@insecurepay.fi.cr', 'AUDITOR'),
+9: ('carlos_mora', 'carlos123', 'Carlos Mora Morales', 'cmora@correo.cr', 'CLIENTE'),
+10: ('maria_rojas', 'maria123', 'María Rojas Soto', 'mrojas@empresa.cr', 'CLIENTE'),
+11: ('juan_perez', 'juan123', 'Juan Pérez Delgado', 'jperez@correo.cr', 'CLIENTE');
+12: 
+13: INSERT INTO CUENTAS_BANCARIAS (usuario_id, numero_cuenta, tipo_cuenta, saldo, moneda, activa) VALUES
+14: (1, 'CR05015202001026458900', 'CORRIENTE', 50000000.00, 'CRC', TRUE),
+15: (3, 'CR05015202001026458901', 'AHORROS', 250000.00, 'CRC', TRUE),
+16: (4, 'CR05015202001026458902', 'CORRIENTE', 4850000.00, 'CRC', TRUE),
+17: (5, 'CR05015202001026458903', 'AHORROS', 75000.00, 'CRC', TRUE);
+18: 
+19: INSERT INTO TRANSACCIONES (cuenta_origen_id, cuenta_destino_id, monto, concepto_html, fecha, estado) VALUES
+20: (2, 3, 45000.00, '<p>Pago de servicios profesionales de programacion. <span style="color: green; font-weight: bold;">Verificado</span></p>', '2026-03-01 10:15:00', 'COMPLETADA'),
+21: (3, 4, 120000.00, '<p>Cancelacion cuota de alquiler oficina central. Factura electronica #8849.</p>', '2026-03-05 14:30:00', 'COMPLETADA'),
+22: (3, 2, 15000.00, '<p>Reembolso almuerzo equipo de trabajo.</p>', '2026-03-12 11:20:00', 'COMPLETADA'),
+23: (4, 2, 35000.00, '<p>Aporte fondo solidario cooperativo. <span style="color: blue;">Transferencia inmediata SINPE Movil</span></p>', '2026-03-20 09:45:00', 'COMPLETADA');
+24: 
+
+FILE frontend/src/app/components/transacciones/transacciones.component.ts
+1: import { Component, OnInit } from '@angular/core';
+2: import { CommonModule } from '@angular/common';
+3: import { FormsModule } from '@angular/forms';
+4: import { RouterModule } from '@angular/router';
+5: import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+6: import { BancoService } from '../../services/banco.service';
+7: import { AuthService } from '../../services/auth.service';
+8: import { Transaccion } from '../../models/banco.model';
+9: 
+10: @Component({
+11:   selector: 'app-transacciones',
+12:   standalone: true,
+13:   imports: [CommonModule, FormsModule, RouterModule],
+14:   templateUrl: './transacciones.component.html'
+15: })
+16: export class TransaccionesComponent implements OnInit {
+17:   transacciones: Transaccion[] = [];
+18:   transaccionSeleccionada: Transaccion | null = null;
+19:   conceptoSeguro: SafeHtml = '';
+20:   terminoBusqueda = '';
+21:   loading = false;
+22:   errorInfo = '';
+23: 
+24:   constructor(
+25:     private bancoService: BancoService,
+26:     public authService: AuthService,
+27:     // [VULNERABILIDAD INTENCIONADA: A03:2021 - Bypass de Sanitizacion XSS]
+28:     private sanitizer: DomSanitizer
+29:   ) {}
+30: 
+31:   ngOnInit(): void {
+32:     this.cargarTransacciones();
+33:   }
+34: 
+35:   cargarTransacciones(): void {
+36:     this.loading = true;
+37:     this.errorInfo = '';
+38:     this.bancoService.listarTransacciones().subscribe({
+39:       next: (data) => {
+40:         this.transacciones = data;
+41:         this.loading = false;
+42:       },
+43:       error: (err) => {
+44:         this.loading = false;
+45:         this.errorInfo = 'Error al cargar historial: ' + (err.error?.message || err.message);
+46:       }
+47:     });
+48:   }
+49: 
+50:   // [VULNERABILIDAD INTENCIONADA: SQL Injection Trigger]
+51:   ejecutarBusqueda(): void {
+52:     if (!this.terminoBusqueda.trim()) {
+53:       this.cargarTransacciones();
+54:       return;
+55:     }
+56: 
+57:     this.loading = true;
+58:     this.errorInfo = '';
+59:     this.bancoService.buscarTransacciones(this.terminoBusqueda).subscribe({
+60:       next: (data) => {
+61:         this.transacciones = data;
+62:         this.loading = false;
+63:       },
+64:       error: (err) => {
+65:         this.loading = false;
+66:         // [VULNERABILIDAD INTENCIONADA: A05:2021 - Fuga de Error SQL]
+67:         this.errorInfo = 'Fallo de Base de Datos (Stack Trace): ' + (err.error?.message || err.error?.trace || err.message);
+68:       }
+69:     });
+70:   }
+71: 
+72:   inyectarPayloadSql(): void {
+73:     this.terminoBusqueda = "' OR '1'='1";
+74:     this.ejecutarBusqueda();
+75:   }
+76: 
+77:   verComprobante(t: Transaccion): void {
+78:     this.transaccionSeleccionada = t;
+79:     // [VULNERABILIDAD INTENCIONADA: Stored XSS Sink]
+80:     // Anula voluntariamente la sanitizacion nativa de Angular
+81:     if (t.conceptoHtml) {
+82:       this.conceptoSeguro = this.sanitizer.bypassSecurityTrustHtml(t.conceptoHtml);
+83:     } else {
+84:       this.conceptoSeguro = '';
+85:     }
+86:   }
+87: 
+88:   cerrarComprobante(): void {
+89:     this.transaccionSeleccionada = null;
+90:     this.conceptoSeguro = '';
+91:   }
+92: }
+93: 
+
+FILE frontend/src/app/components/transacciones/transacciones.component.html
+1: <div class="container">
+2:   <div class="card">
+3:     <div class="card-header">
+4:       <div>
+5:         <h2>Historial de Movimientos Bancarios</h2>
+6:         <p style="font-size: 14px; color: var(--text-muted);">Registro de débitos y créditos en la red bancaria InsecurePay.</p>
+7:       </div>
+8:       <div>
+9:         <a routerLink="/transferir" class="btn btn-primary">+ Nueva Transferencia</a>
+10:       </div>
+11:     </div>
+12: 
+13:     <!-- Barra de Búsqueda Vulnerable a SQL Injection -->
+14:     <div style="margin-bottom: 24px; background: #f8fafc; padding: 18px; border-radius: var(--radius); border: 1px solid var(--border);">
+15:       <label for="search" style="font-weight: 700;">Filtro Forense de Transacciones (Búsqueda por Concepto)</label>
+16:       <div style="display: flex; gap: 10px; margin-top: 6px;">
+17:         <input type="text" id="search" [(ngModel)]="terminoBusqueda" (keyup.enter)="ejecutarBusqueda()"
+18:                placeholder="Buscar por concepto o inyectar payload SQL..." style="flex: 1;">
+19:         <button type="button" class="btn btn-primary" (click)="ejecutarBusqueda()">Buscar</button>
+20:         <button type="button" class="btn btn-secondary" (click)="cargarTransacciones()">Restablecer</button>
+21:       </div>
+22: 
+23:       <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px;">
+24:         <span style="font-size: 12px; color: var(--text-muted); font-weight: 700;">PAYLOAD FORENSE SQLi:</span>
+25:         <button type="button" class="btn btn-secondary btn-sm" (click)="inyectarPayloadSql()">
+26:           Inyectar Tautología: <code>' OR '1'='1</code>
+27:         </button>
+28:       </div>
+29:     </div>
+30: 
+31:     <!-- Exposición de Error / Stack Trace SQL -->
+32:     <div *ngIf="errorInfo" class="alert alert-danger" style="font-family: monospace; font-size: 13px; white-space: pre-wrap;">
+33:       {{ errorInfo }}
+34:     </div>
+35: 
+36:     <!-- Tabla de Transacciones -->
+37:     <div class="table-responsive">
+38:       <table>
+39:         <thead>
+40:           <tr>
+41:             <th>ID</th>
+42:             <th>Fecha</th>
+43:             <th>Origen (Débito)</th>
+44:             <th>Destino (Crédito)</th>
+45:             <th>Monto</th>
+46:             <th>Estado</th>
+47:             <th>Comprobante</th>
+48:           </tr>
+49:         </thead>
+50:         <tbody>
+51:           <tr *ngFor="let t of transacciones">
+52:             <td><strong>#{{ t.id }}</strong></td>
+53:             <td style="font-size: 13px; color: var(--text-muted);">{{ t.fecha }}</td>
+54:             <td>
+55:               <strong>{{ t.titularOrigen }}</strong><br/>
+56:               <span class="code-font" style="font-size: 12px; color: var(--text-muted);">{{ t.numeroCuentaOrigen }}</span>
+57:             </td>
+58:             <td>
+59:               <strong>{{ t.titularDestino }}</strong><br/>
+60:               <span class="code-font" style="font-size: 12px; color: var(--text-muted);">{{ t.numeroCuentaDestino }}</span>
+61:             </td>
+62:             <td>
+63:               <strong style="color: var(--primary); font-size: 15px;">₡ {{ t.monto | number:'1.2-2' }}</strong>
+64:             </td>
+65:             <td><span class="badge badge-success">{{ t.estado }}</span></td>
+66:             <td>
+67:               <button class="btn btn-secondary btn-sm" (click)="verComprobante(t)">
+68:                 Ver Recibo (XSS)
+69:               </button>
+70:             </td>
+71:           </tr>
+72:         </tbody>
+73:       </table>
+74:     </div>
+75:   </div>
+76: 
+77:   <!-- MODAL / VISTA DE COMPROBANTE CON RENDERIZADO INSEGURO XSS -->
+78:   <div *ngIf="transaccionSeleccionada" class="card" style="border: 2px solid #f87171; background: #fffaf0;">
+79:     <div class="card-header" style="border-bottom-color: #fecaca;">
+80:       <div>
+81:         <span class="badge badge-danger">COMPROBANTE BANCARIO OFICIAL (SINK XSS ALMACENADO)</span>
+82:         <h3 style="margin-top: 6px;">Transacción #{{ transaccionSeleccionada.id }}</h3>
+83:       </div>
+84:       <button class="btn btn-secondary btn-sm" (click)="cerrarComprobante()">✕ Cerrar</button>
+85:     </div>
+86: 
+87:     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+88:       <div>
+89:         <span style="font-size: 12px; color: var(--text-muted);">Titular de Origen:</span>
+90:         <p style="font-weight: 700;">{{ transaccionSeleccionada.titularOrigen }}</p>
+91:       </div>
+92:       <div>
+93:         <span style="font-size: 12px; color: var(--text-muted);">Monto Transferido:</span>
+94:         <p style="font-weight: 800; font-size: 20px; color: var(--primary);">₡ {{ transaccionSeleccionada.monto | number:'1.2-2' }}</p>
+95:       </div>
+96:     </div>
+97: 
+98:     <div class="form-group">
+99:       <label style="color: #b91c1c;">Detalle del Concepto (Renderizado HTML en Directo - Bypass DomSanitizer):</label>
+100:       <div style="background: #ffffff; padding: 18px; border-radius: var(--radius); border: 2px dashed #ef4444; min-height: 70px;"
+101:            [innerHTML]="conceptoSeguro">
+102:       </div>
+103:     </div>
+104:   </div>
+105: </div>
+106:

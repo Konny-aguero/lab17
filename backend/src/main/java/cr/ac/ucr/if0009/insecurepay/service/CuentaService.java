@@ -4,6 +4,9 @@ import cr.ac.ucr.if0009.insecurepay.dto.CuentaDto;
 import cr.ac.ucr.if0009.insecurepay.model.CuentaBancaria;
 import cr.ac.ucr.if0009.insecurepay.repository.CuentaRepository;
 import org.springframework.stereotype.Service;
+import cr.ac.ucr.if0009.insecurepay.model.Usuario;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -12,30 +15,32 @@ import java.util.stream.Collectors;
 public class CuentaService {
 
     private final CuentaRepository cuentaRepository;
+    private final AccesoService acceso;
 
-    public CuentaService(CuentaRepository cuentaRepository) {
+    public CuentaService(CuentaRepository cuentaRepository, AccesoService acceso) {
         this.cuentaRepository = cuentaRepository;
+        this.acceso = acceso;
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A01:2021 - Broken Access Control]
-    // Retorna todas las cuentas del banco sin verificar privilegios de administrador
-    public List<CuentaDto> listarTodas() {
-        return cuentaRepository.findAll().stream()
+    public List<CuentaDto> listarTodas(String auth) {
+        Usuario usuario = acceso.autenticar(auth);
+        return (acceso.puedeAuditar(usuario) ? cuentaRepository.findAll()
+                : cuentaRepository.findByUsuarioId(usuario.getId())).stream()
                 .map(this::convertirADto)
                 .collect(Collectors.toList());
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A01:2021 - IDOR (Insecure Direct Object Reference)]
-    // Permite consultar los fondos y datos de cualquier cuenta bancaria alterando el {id}
-    public CuentaDto obtenerPorId(Long id) {
+    public CuentaDto obtenerPorId(Long id, String auth) {
+        Usuario usuario = acceso.autenticar(auth);
         CuentaBancaria cuenta = cuentaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Cuenta bancaria no encontrada con ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cuenta bancaria no encontrada."));
+        acceso.exigirPropietario(usuario, cuenta.getUsuario().getId(), true);
         return convertirADto(cuenta);
     }
 
-    // [VULNERABILIDAD INTENCIONADA: A01:2021 - BOLA]
-    // Permite listar todas las cuentas de cualquier cliente alterando el usuarioId
-    public List<CuentaDto> obtenerPorUsuario(Long usuarioId) {
+    public List<CuentaDto> obtenerPorUsuario(Long usuarioId, String auth) {
+        Usuario usuario = acceso.autenticar(auth);
+        acceso.exigirPropietario(usuario, usuarioId, true);
         return cuentaRepository.findByUsuarioId(usuarioId).stream()
                 .map(this::convertirADto)
                 .collect(Collectors.toList());
@@ -54,4 +59,3 @@ public class CuentaService {
         return dto;
     }
 }
-

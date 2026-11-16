@@ -15,7 +15,7 @@ import { Cuenta } from '../../models/banco.model';
 export class DashboardComponent implements OnInit {
   misCuentas: Cuenta[] = [];
   cuentaEspiada: Cuenta | null = null;
-  cuentaIdAInspeccionar: number = 2; // Por defecto cuenta de Maria Rojas
+  cuentaIdAInspeccionar: number = 3;
   loading = false;
   errorMsg = '';
   auditErrorMsg = '';
@@ -41,12 +41,11 @@ export class DashboardComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMsg = 'Error al cargar cuentas: ' + (err.error?.message || err.message);
+        this.errorMsg = 'Error al cargar cuentas: ' + (err.error?.detail || 'Solicitud rechazada.');
       }
     });
   }
 
-  // [VULNERABILIDAD INTENCIONADA: IDOR Trigger en Consulta de Balances]
   inspeccionarCuentaPorId(): void {
     this.auditErrorMsg = '';
     this.cuentaEspiada = null;
@@ -56,7 +55,7 @@ export class DashboardComponent implements OnInit {
         this.cuentaEspiada = cuenta;
       },
       error: (err) => {
-        this.auditErrorMsg = 'Fallo al consultar cuenta: ' + (err.error?.message || err.message);
+        this.auditErrorMsg = 'Fallo al consultar cuenta: ' + (err.error?.detail || 'Solicitud rechazada.');
       }
     });
   }

@@ -4,37 +4,44 @@
     {
       "label": "Iniciar Backend (Spring Boot)",
       "type": "shell",
-      "command": "mvn spring-boot:run",
-      "options": {
-        "cwd": "${workspaceFolder}/backend"
-      },
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/iniciar-backend.ps1"
+      ],
       "isBackground": true,
-      "problemMatcher": "$msCompile",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
+      "problemMatcher": []
     },
     {
       "label": "Iniciar Frontend (Angular)",
       "type": "shell",
-      "command": "npm start",
+      "command": "npm.cmd start",
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
       "isBackground": true,
-      "problemMatcher": "$tsc-watch",
-      "group": "build"
+      "problemMatcher": []
     },
     {
-      "label": "Instalar Dependencias Frontend (npm install)",
+      "label": "Instalar Dependencias Frontend (npm ci)",
       "type": "shell",
-      "command": "npm install",
+      "command": "npm.cmd ci",
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Start All (Backend + Frontend)",
+      "dependsOn": [
+        "Iniciar Backend (Spring Boot)",
+        "Iniciar Frontend (Angular)"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
     }
   ]
 }
-

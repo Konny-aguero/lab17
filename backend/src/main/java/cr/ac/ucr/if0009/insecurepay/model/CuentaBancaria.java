@@ -34,7 +34,7 @@ public class CuentaBancaria {
     public CuentaBancaria() {
     }
 
-    public CuentaBancaria(Usuario usuario, String numeroCuenta, TipoCuenta tipoCuenta, 
+    public CuentaBancaria(Usuario usuario, String numeroCuenta, TipoCuenta tipoCuenta,
                           BigDecimal saldo, String moneda, Boolean activa) {
         this.usuario = usuario;
         this.numeroCuenta = numeroCuenta;

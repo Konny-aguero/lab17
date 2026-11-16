@@ -80,3 +80,11 @@ $RECYCLE.BIN/
 .LSOverride
 ._*
 
+
+.local/
+.env
+*.p12
+*.pem
+
+__pycache__/
+*.pyc

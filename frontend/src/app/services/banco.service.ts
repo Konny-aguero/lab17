@@ -7,7 +7,7 @@ import { Cuenta, Transaccion, TransferenciaRequest } from '../models/banco.model
   providedIn: 'root'
 })
 export class BancoService {
-  private apiUrl = 'http://localhost:8080/api';
+  private apiUrl = '/api';
 
   constructor(private http: HttpClient) {}
 
@@ -15,7 +15,6 @@ export class BancoService {
     return this.http.get<Cuenta[]>(`${this.apiUrl}/cuentas/usuario/${usuarioId}`);
   }
 
-  // [VULNERABILIDAD INTENCIONADA: IDOR en Consulta de Cuentas]
   obtenerCuentaPorId(id: number): Observable<Cuenta> {
     return this.http.get<Cuenta>(`${this.apiUrl}/cuentas/${id}`);
   }
@@ -36,14 +35,11 @@ export class BancoService {
     return this.http.get<Transaccion[]>(`${this.apiUrl}/transacciones/cuenta/${cuentaId}`);
   }
 
-  // [VULNERABILIDAD INTENCIONADA: SQL Injection]
   buscarTransacciones(termino: string): Observable<Transaccion[]> {
     return this.http.get<Transaccion[]>(`${this.apiUrl}/transacciones/buscar?termino=${encodeURIComponent(termino)}`);
   }
 
-  // [VULNERABILIDAD INTENCIONADA: IDOR en Origen de Fondos + Stored XSS]
   transferir(req: TransferenciaRequest): Observable<Transaccion> {
     return this.http.post<Transaccion>(`${this.apiUrl}/transacciones/transferir`, req);
   }
 }
-

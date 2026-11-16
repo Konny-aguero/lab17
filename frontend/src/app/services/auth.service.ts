@@ -7,8 +7,8 @@ import { LoginResponse } from '../models/usuario.model';
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:8080/api/auth';
-  
+  private apiUrl = '/api/auth';
+
   public currentUser = signal<LoginResponse | null>(null);
 
   constructor(private http: HttpClient) {
@@ -41,4 +41,3 @@ export class AuthService {
     return this.currentUser() !== null;
   }
 }
-

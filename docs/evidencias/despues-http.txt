@@ -1,0 +1,117 @@
+Fase: despues
+Fecha UTC: 2026-11-14T23:17:11.726035+00:00
+Base: https://localhost:8080
+
+LOGIN CARLOS
+POST /api/auth/login
+HTTP 200
+Content-Type: application/json
+{
+  "token": "[TOKEN OMITIDO]",
+  "username": "carlos_mora",
+  "nombreCompleto": "Carlos Mora Morales",
+  "rol": "CLIENTE",
+  "usuarioId": 3
+}
+
+SQLi
+GET /api/transacciones/buscar?termino=%27+OR+1%3D1+--
+HTTP 200
+Content-Type: application/json
+[]
+
+CUENTA AJENA CON SALDO
+GET /api/cuentas/3
+HTTP 403
+Content-Type: application/problem+json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/cuentas/3"
+}
+
+ENDPOINT SALDO
+GET /api/cuentas/3/saldo
+HTTP 403
+Content-Type: application/problem+json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/cuentas/3/saldo"
+}
+
+TRANSFERENCIA DESDE CUENTA AJENA
+POST /api/transacciones/transferir
+HTTP 403
+Content-Type: application/problem+json
+{
+  "type": "about:blank",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Acceso no autorizado a cuenta ajena.",
+  "instance": "/api/transacciones/transferir"
+}
+
+XSS ALMACENADO
+POST /api/transacciones/transferir
+HTTP 201
+Content-Type: application/json
+{
+  "id": 5,
+  "cuentaOrigenId": 2,
+  "numeroCuentaOrigen": "CR05015202001026458901",
+  "titularOrigen": "Carlos Mora Morales",
+  "cuentaDestinoId": 3,
+  "numeroCuentaDestino": "CR05015202001026458902",
+  "titularDestino": "María Rojas Soto",
+  "monto": 1,
+  "conceptoHtml": "&lt;img src=&quot;x&quot; onerror=&quot;alert(&#39;AUDITORIA XSS CONFIRMADA&#39;)&quot;&gt;",
+  "fecha": "2026-11-14T17:17:25.620327",
+  "estado": "COMPLETADA"
+}
+
+CONSULTA QUE PRODUCIA ERROR SQL
+GET /api/transacciones/buscar?termino=%27
+HTTP 200
+Content-Type: application/json
+[]
+
+LOGIN INVALIDO
+POST /api/auth/login
+HTTP 401
+Content-Type: application/problem+json
+{
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Credenciales invalidas.",
+  "instance": "/api/auth/login"
+}
+
+SIN TOKEN
+GET /api/cuentas/2
+HTTP 401
+Content-Type: application/problem+json
+{
+  "type": "about:blank",
+  "title": "Unauthorized",
+  "status": 401,
+  "detail": "Autenticacion requerida.",
+  "instance": "/api/cuentas/2"
+}
+
+CONSOLA H2
+GET /h2-console/
+HTTP 404
+Content-Type: application/problem+json
+{
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Solicitud no valida.",
+  "instance": "/h2-console/"
+}

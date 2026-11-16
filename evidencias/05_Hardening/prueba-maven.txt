@@ -1,0 +1,8 @@
+EXTRACTO LITERAL DE evidencias/validacion-maven.txt
+
+ERROR_500_VERIFICADO: {"type":"about:blank","title":"Internal Server Error","status":500,"detail":"No fue posible procesar la solicitud.","instance":"/fallo-prueba"}
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.506 s -- in cr.ac.ucr.if0009.insecurepay.ErrorHandlingTests
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 12.79 s -- in cr.ac.ucr.if0009.insecurepay.InsecurePayApplicationTests
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 9.525 s -- in cr.ac.ucr.if0009.insecurepay.SeguridadTests
+[INFO] Tests run: 18, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
