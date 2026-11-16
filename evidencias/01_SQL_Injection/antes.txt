@@ -1,64 +1,16 @@
-EVIDENCIA ORIGINAL - ANTES
-Fuente: docs/evidencias/antes-http.txt
-Fase: antes
-Fecha UTC: 2026-11-14T21:59:27.534697+00:00
-Base: http://localhost:8080
-
 SQLi
 GET /api/transacciones/buscar?termino=%27+OR+1%3D1+--
 HTTP 200
-Content-Type: application/json
-[
-  {
-    "id": 1,
-    "cuentaOrigenId": 2,
-    "numeroCuentaOrigen": "CR05015202001026458901",
-    "titularOrigen": "Carlos Mora Morales",
-    "cuentaDestinoId": 3,
-    "numeroCuentaDestino": "CR05015202001026458902",
-    "titularDestino": "María Rojas Soto",
-    "monto": 45000.0,
-    "conceptoHtml": "<p>Pago de servicios profesionales de programacion. <span style=\"color: green; font-weight: bold;\">Verificado</span></p>",
-    "fecha": "2026-03-01T10:15:00",
-    "estado": "COMPLETADA"
-  },
-  {
-    "id": 2,
-    "cuentaOrigenId": 3,
-    "numeroCuentaOrigen": "CR05015202001026458902",
-    "titularOrigen": "María Rojas Soto",
-    "cuentaDestinoId": 4,
-    "numeroCuentaDestino": "CR05015202001026458903",
-    "titularDestino": "Juan Pérez Delgado",
-    "monto": 120000.0,
-    "conceptoHtml": "<p>Cancelacion cuota de alquiler oficina central. Factura electronica #8849.</p>",
-    "fecha": "2026-03-05T14:30:00",
-    "estado": "COMPLETADA"
-  },
-  {
-    "id": 3,
-    "cuentaOrigenId": 3,
-    "numeroCuentaOrigen": "CR05015202001026458902",
-    "titularOrigen": "María Rojas Soto",
-    "cuentaDestinoId": 2,
-    "numeroCuentaDestino": "CR05015202001026458901",
-    "titularDestino": "Carlos Mora Morales",
-    "monto": 15000.0,
-    "conceptoHtml": "<p>Reembolso almuerzo equipo de trabajo.</p>",
-    "fecha": "2026-03-12T11:20:00",
-    "estado": "COMPLETADA"
-  },
-  {
-    "id": 4,
-    "cuentaOrigenId": 4,
-    "numeroCuentaOrigen": "CR05015202001026458903",
-    "titularOrigen": "Juan Pérez Delgado",
-    "cuentaDestinoId": 2,
-    "numeroCuentaDestino": "CR05015202001026458901",
-    "titularDestino": "Carlos Mora Morales",
-    "monto": 35000.0,
-    "conceptoHtml": "<p>Aporte fondo solidario cooperativo. <span style=\"color: blue;\">Transferencia inmediata SINPE Movil</span></p>",
-    "fecha": "2026-03-20T09:45:00",
-    "estado": "COMPLETADA"
-  }
-]
+{
+  "id": 2,
+  "cuentaOrigenId": 3,
+  "numeroCuentaOrigen": "CR05015202001026458902",
+  "titularOrigen": "María Rojas Soto",
+  "cuentaDestinoId": 4,
+  "numeroCuentaDestino": "CR05015202001026458903",
+  "titularDestino": "Juan Pérez Delgado",
+  "monto": 120000.0,
+  "conceptoHtml": "<p>Cancelacion cuota de alquiler oficina central. Factura electronica #8849.</p>",
+  "fecha": "2026-03-05T14:30:00",
+  "estado": "COMPLETADA"
+}

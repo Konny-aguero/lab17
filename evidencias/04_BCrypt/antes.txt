@@ -1,6 +1,3 @@
-EVIDENCIA ORIGINAL - REVISION ESTATICA
-Commit: ef19c14fba95af3668c7184b6070d504c0d4e796
-
 backend/src/main/resources/data.sql, lineas 7-12
 7: ('admin', 'admin123', 'Administrador General de Sistemas', 'admin@insecurepay.fi.cr', 'ADMIN'),
 8: ('auditor_seguridad', 'auditor2026', 'Lic. Esteban Solano Chaves', 'esolano@insecurepay.fi.cr', 'AUDITOR'),
@@ -16,15 +13,3 @@ backend/src/main/java/cr/ac/ucr/if0009/insecurepay/service/AuthService.java, lin
 30: 
 31:         String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getRol().name(), usuario.getId());
 32: 
-
-LOGIN CARLOS
-POST /api/auth/login
-HTTP 200
-Content-Type: application/json
-{
-  "token": "[TOKEN OMITIDO]",
-  "username": "carlos_mora",
-  "nombreCompleto": "Carlos Mora Morales",
-  "rol": "CLIENTE",
-  "usuarioId": 3
-}

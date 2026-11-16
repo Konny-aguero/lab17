@@ -1,13 +1,6 @@
-EVIDENCIA ORIGINAL - ANTES
-Fuente: docs/evidencias/antes-http.txt
-Fase: antes
-Fecha UTC: 2026-11-14T21:59:27.534697+00:00
-Base: http://localhost:8080
-
 CONSULTA QUE PRODUCIA ERROR SQL
 GET /api/transacciones/buscar?termino=%27
 HTTP 500
-Content-Type: application/json
 {
   "timestamp": "2026-11-14T21:59:43.333+00:00",
   "status": 500,
